@@ -563,6 +563,7 @@ RED.diff = (function() {
         return div;
     }
     function createNodePropertiesTable(def,node,localNodeObj,remoteNodeObj) {
+        var propertyElements = {};
         var localNode = localNodeObj.node;
         var remoteNode;
         if (remoteNodeObj) {
@@ -573,6 +574,7 @@ RED.diff = (function() {
         var nodePropertiesTable = $("<table>").appendTo(nodePropertiesDiv);
         var row;
         var localCell, remoteCell;
+        var element;
         var currentValue, localValue, remoteValue;
         var localChanged = false;
         var remoteChanged = false;
@@ -587,7 +589,8 @@ RED.diff = (function() {
         if (localNode) {
             localCell.addClass("node-diff-node-unchanged");
             $('<span class="node-diff-status"></span>').appendTo(localCell);
-            RED.utils.createObjectElement(localNode.id).appendTo(localCell);
+            element = $('<span class="node-diff-element"></span>').appendTo(localCell);
+            propertyElements['local.id'] = RED.utils.createObjectElement(localNode.id).appendTo(element);
         } else {
             localCell.addClass("node-diff-empty");
         }
@@ -596,7 +599,8 @@ RED.diff = (function() {
             remoteCell.addClass("node-diff-node-unchanged");
             if (remoteNode) {
                 $('<span class="node-diff-status"></span>').appendTo(remoteCell);
-                RED.utils.createObjectElement(remoteNode.id).appendTo(remoteCell);
+                element = $('<span class="node-diff-element"></span>').appendTo(remoteCell);
+                propertyElements['remote.id'] = RED.utils.createObjectElement(remoteNode.id).appendTo(element);
             } else {
                 remoteCell.addClass("node-diff-empty");
             }
@@ -628,7 +632,18 @@ RED.diff = (function() {
             if (localNode) {
                 localCell.addClass("node-diff-node-"+(localChanged?"changed":"unchanged"));
                 $('<span class="node-diff-status">'+(localChanged?'<i class="fa fa-square"></i>':'')+'</span>').appendTo(localCell);
-                RED.utils.createObjectElement({x:localNode.x,y:localNode.y}).appendTo(localCell);
+                element = $('<span class="node-diff-element"></span>').appendTo(localCell);
+                propertyElements['local.position'] = RED.utils.createObjectElement({x:localNode.x,y:localNode.y},
+                    {
+                        path: "position",
+                        exposeApi: true,
+                        ontoggle: function(path,state) {
+                            if (propertyElements['remote.'+path]) {
+                                propertyElements['remote.'+path].prop('expand')(path,state)
+                            }
+                        }
+                    }
+                ).appendTo(element);
             } else {
                 localCell.addClass("node-diff-empty");
             }
@@ -638,7 +653,18 @@ RED.diff = (function() {
                 remoteCell.addClass("node-diff-node-"+(remoteChanged?"changed":"unchanged"));
                 if (remoteNode) {
                     $('<span class="node-diff-status">'+(remoteChanged?'<i class="fa fa-square"></i>':'')+'</span>').appendTo(remoteCell);
-                    RED.utils.createObjectElement({x:remoteNode.x,y:remoteNode.y}).appendTo(remoteCell);
+                    element = $('<span class="node-diff-element"></span>').appendTo(remoteCell);
+                    propertyElements['remote.position'] = RED.utils.createObjectElement({x:remoteNode.x,y:remoteNode.y},
+                        {
+                            path: "position",
+                            exposeApi: true,
+                            ontoggle: function(path,state) {
+                                if (propertyElements['local.'+path]) {
+                                    propertyElements['local.'+path].prop('expand')(path,state);
+                                }
+                            }
+                        }
+                    ).appendTo(element);
                 } else {
                     remoteCell.addClass("node-diff-empty");
                 }
@@ -742,7 +768,18 @@ RED.diff = (function() {
                     localCell.addClass("node-diff-node-conflict");
                     $('<span class="node-diff-status"><i class="fa fa-exclamation"></i></span>').appendTo(localCell);
                 }
-                RED.utils.createObjectElement(localNode[d]).appendTo(localCell);
+                element = $('<span class="node-diff-element"></span>').appendTo(localCell);
+                propertyElements['local.'+d] = RED.utils.createObjectElement(localNode[d],
+                    {
+                        path: d,
+                        exposeApi: true,
+                        ontoggle: function(path,state) {
+                            if (propertyElements['remote.'+d]) {
+                                propertyElements['remote.'+d].prop('expand')(path,state)
+                            }
+                        }
+                    }
+                ).appendTo(element);
             } else {
                 localCell.addClass("node-diff-empty");
             }
@@ -756,7 +793,18 @@ RED.diff = (function() {
                         remoteCell.addClass("node-diff-node-conflict");
                         $('<span class="node-diff-status"><i class="fa fa-exclamation"></i></span>').appendTo(remoteCell);
                     }
-                    RED.utils.createObjectElement(remoteNode[d]).appendTo(remoteCell);
+                    element = $('<span class="node-diff-element"></span>').appendTo(remoteCell);
+                    propertyElements['remote.'+d] = RED.utils.createObjectElement(remoteNode[d],
+                        {
+                            path: d,
+                            exposeApi: true,
+                            ontoggle: function(path,state) {
+                                if (propertyElements['local.'+d]) {
+                                    propertyElements['local.'+d].prop('expand')(path,state)
+                                }
+                            }
+                        }
+                    ).appendTo(element);
                 } else {
                     remoteCell.addClass("node-diff-empty");
                 }
@@ -1002,6 +1050,7 @@ RED.diff = (function() {
         // console.log(conflicted);
         return diff;
     }
+
     function showDiff(diff) {
         var localDiff = diff.localDiff;
         var remoteDiff = diff.remoteDiff;
@@ -1067,7 +1116,7 @@ RED.diff = (function() {
             var tab = currentConfig.tabs[tabId];
             var el = {
                 diff: localDiff,
-                def: {},
+                def: RED.nodes.getType('tab'),
                 tab:tab
             };
             if (newConfig.tabs.hasOwnProperty(tabId)) {
@@ -1086,7 +1135,7 @@ RED.diff = (function() {
                 var tab = newConfig.tabs[tabId];
                 var el = {
                     diff: localDiff,
-                    def: {},
+                    def: RED.nodes.getType('tab'),
                     tab:tab,
                     newTab: tab
                 };
@@ -1104,7 +1153,7 @@ RED.diff = (function() {
                     var el = {
                         diff: localDiff,
                         remoteDiff: remoteDiff,
-                        def: {},
+                        def: RED.nodes.getType('tab'),
                         tab:tab,
                         remoteTab:tab
                     };
@@ -1260,7 +1309,6 @@ RED.diff = (function() {
         RED.palette.refresh();
         RED.workspaces.refresh();
         RED.sidebar.config.refresh();
-
     }
     return {
         init: init,
